@@ -6,7 +6,11 @@ import { Food } from '@/lib/types';
 import { MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
+// Base64 fallback for main image
 const FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=";
+
+// Small fallback for restaurant logo
+const LOGO_FALLBACK = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNTYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2RkZCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZmlsbD0iIzk5OSI+TG9nbzwvdGV4dD48L3N2Zz4=";
 
 interface Props {
   food: Food;
@@ -16,9 +20,11 @@ interface Props {
 
 export default function FoodCard({ food, onEdit, onDelete }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // SAFE: Only check status if restaurant exists
   const isOpen = food.restaurant?.status === "Open Now";
 
-  // SAFE IMAGE URL
+  // SAFE URL VALIDATION
   const isValidUrl = (url?: string): boolean => {
     if (!url || url === '---' || url.trim() === '') return false;
     try {
@@ -30,9 +36,13 @@ export default function FoodCard({ food, onEdit, onDelete }: Props) {
   };
 
   const foodImage = isValidUrl(food.foodImage) ? food.foodImage : FALLBACK;
-  const logoImage = isValidUrl(food.restaurant?.logo) ? food.restaurant?.logo : FALLBACK;
 
-  // SAFE RATING — DEFAULT TO 0.0
+  // SAFE LOGO: Check if restaurant AND logo exist
+  const logoImage = food.restaurant && isValidUrl(food.restaurant.logo)
+    ? food.restaurant.logo
+    : LOGO_FALLBACK;
+
+  // SAFE RATING
   const rating = typeof food.foodRating === 'number' ? food.foodRating : 0.0;
 
   return (
