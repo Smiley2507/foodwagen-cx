@@ -2,57 +2,110 @@
 import { useState, useEffect } from 'react';
 import { foodApi } from '@/lib/api';
 import type { Food } from '@/lib/types';
+import toast from 'react-hot-toast';
 
 export function useFoods() {
-  const [foods, setFoods] = useState<Food[]>([]);
+  const [allFoods, setAllFoods] = useState<Food[]>([]);
+  const [filteredFoods, setFilteredFoods] = useState<Food[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchFoods = async (query = '') => {
-    setLoading(true);
-    try {
-      const data = query ? await foodApi.search(query) : await foodApi.getAll();
-      setFoods(data);
-    } catch (error) {
-      console.error('Failed to fetch foods:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Fetch all foods on component mount
   useEffect(() => {
+    const fetchFoods = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await foodApi.getAll();
+        setAllFoods(data);
+        setFilteredFoods(data); // Initially show all foods
+        console.log('Fetched foods:', data.length);
+      } catch (err: any) {
+        const message = err.response?.data?.message || err.message || 'Failed to load meals';
+        setError(message);
+        toast.error(message);
+        console.error('API Error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchFoods();
   }, []);
 
+  // Apply search filter whenever searchQuery or allFoods changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredFoods(allFoods);
+      console.log('Showing all foods:', allFoods.length);
+      return;
+    }
+
+    const filtered = allFoods.filter(food => 
+      food.foodName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      food.restaurant?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    
+    setFilteredFoods(filtered);
+    console.log(`Search "${searchQuery}": found ${filtered.length} of ${allFoods.length} foods`);
+    
+    if (filtered.length === 0 && searchQuery) {
+      toast.error(`No meals found for "${searchQuery}"`);
+    }
+  }, [searchQuery, allFoods]);
+
   const search = (query: string) => {
+    console.log('Setting search query:', query);
     setSearchQuery(query);
-    const timer = setTimeout(() => fetchFoods(query), 500);
-    return () => clearTimeout(timer);
   };
 
   const addFood = async (food: Omit<Food, 'id'>) => {
-    const newFood = await foodApi.create(food);
-    setFoods(prev => [...prev, newFood]);
+    try {
+      const newFood = await foodApi.create(food);
+      setAllFoods(prev => [...prev, newFood]);
+      // The useEffect will automatically update filteredFoods
+      toast.success('Meal added successfully!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add meal');
+      throw err;
+    }
   };
 
   const updateFood = async (id: string, updates: Partial<Food>) => {
-    const updated = await foodApi.update(id, updates);
-    setFoods(prev => prev.map(f => f.id === id ? updated : f));
+    try {
+      const updated = await foodApi.update(id, updates);
+      setAllFoods(prev => prev.map(f => f.id === id ? updated : f));
+      // The useEffect will automatically update filteredFoods
+      toast.success('Meal updated!');
+    } catch (err: any) {
+      toast.error('Failed to update meal');
+      throw err;
+    }
   };
 
   const deleteFood = async (id: string) => {
-    await foodApi.delete(id);
-    setFoods(prev => prev.filter(f => f.id !== id));
+    try {
+      await foodApi.delete(id);
+      setAllFoods(prev => prev.filter(f => f.id !== id));
+      // The useEffect will automatically update filteredFoods
+      toast.success('Meal deleted');
+    } catch (err: any) {
+      toast.error('Failed to delete meal');
+      throw err;
+    }
   };
 
   return {
-    foods,
+    foods: filteredFoods, // This is what the grid should display
+    allFoods, // For debugging
     loading,
+    error,
     searchQuery,
     search,
     addFood,
     updateFood,
     deleteFood,
-    refetch: () => fetchFoods(searchQuery),
+    refetch: () => window.location.reload(), // Simple reload for now
   };
 }
